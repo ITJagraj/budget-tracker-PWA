@@ -1,3 +1,9 @@
+const indexedDB =
+    window.indexedDB ||
+    window.mozIndexedDB ||
+    window.webkitIndexedDB ||
+    window.msIndexedDB ||
+    window.shimIndexedDB;
 //create variable to hold bd connection
 let db;
 
@@ -6,14 +12,14 @@ let db;
 const request = indexedDB.open('budget', 1);
 
 
-request.onupgradeneeded = function (event) {
+request.onupgradeneeded = (event) => {
     //save a ref to the database
-    const db = event.target.result;
+    let db = event.target.result;
     //create an object store called 'new-transaction', set it to have an auto incrementing primary key of sorts
     db.createObjectStore('new_transaction', { autoIncrement: true });
 };
 
-request.onsucess = function (event) {
+request.onsucess = (event) => {
     db = event.target.result;
 
     if (navigator.online) {
@@ -31,10 +37,10 @@ function saveRecord(record) {
     const transaction = db.transaction(['new_transaction'], 'readwrite');
 
     // access the object store for `new_transaction`
-    const transactionObjectStore = transaction.objectStore('new_transaction');
+    const store = transaction.objectStore('new_transaction');
 
     // add record to your store with add method
-    transactionObjectStore.add(record);
+    store.add(record);
 }
 
 function uploadTransaction() {
@@ -42,16 +48,16 @@ function uploadTransaction() {
     const transaction = db.transaction(['new_transaction'], 'readwrite');
 
     // access your object store
-    const transactionObjectStore = transaction.objectStore('new_transaction');
+    const store = transaction.objectStore('new_transaction');
 
     // get all records from store and set to a variable
-    const getAll = transactionObjectStore.getAll();
+    const getAll = store.getAll();
 
     // upon a successful .getAll() execution, run this function
     getAll.onsuccess = function () {
         // if there was data in indexedDb's store, let's send it to the api server
         if (getAll.result.length > 0) {
-            fetch('/api/transaction', {
+            fetch('/api/transaction/bulk', {
                 method: 'POST',
                 body: JSON.stringify(getAll.result),
                 headers: {
@@ -60,22 +66,16 @@ function uploadTransaction() {
                 }
             })
                 .then(response => response.json())
-                .then(serverResponse => {
-                    if (serverResponse.message) {
-                        throw new Error(serverResponse);
-                    }
-                    // open one more transaction
+                .then(() => {
+                    //delete the record from the indexDB if successful
                     const transaction = db.transaction(['new_transaction'], 'readwrite');
-                    // access the new_pizza object store
-                    const transactionObjectStore = transaction.objectStore('new_transaction');
-                    // clear all items in your store
-                    transactionObjectStore.clear();
 
-                    alert('All saved transaction has been submitted!');
+                    // access the object store for `new_transaction`
+                    const store = transaction.objectStore('new_transaction');
+
+                    // add record to your store with add method
+                    store.clear();
                 })
-                .catch(err => {
-                    console.log(err);
-                });
         }
     };
 }

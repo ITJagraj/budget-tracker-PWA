@@ -1,22 +1,25 @@
+const { response } = require("express");
+
 const FILES_TO_CACHE = [
-    "./index.html",
-    "./css/styles.css",
-    "./js/index.js",
-    "./js/idb.js",
-    "./manifest.json",
-    "./icons/icon-512x512.png",
-    "./icons/icon-384x384.png",
-    "./icons/icon-192x192.png",
-    "./icons/icon-152x152.png",
-    "./icons/icon-144x144.png",
-    "./icons/icon-128x128.png",
-    "./icons/icon-96x96.png",
-    "./icons/icon-72x72.png",
+    "/",
+    "/css/styles.css",
+    "/js/index.js",
+    "/js/idb.js",
+    "/manifest.json",
+    "/icons/icon-512x512.png",
+    "/icons/icon-384x384.png",
+    "/icons/icon-192x192.png",
+    "/icons/icon-152x152.png",
+    "/icons/icon-144x144.png",
+    "/icons/icon-128x128.png",
+    "/icons/icon-96x96.png",
+    "/icons/icon-72x72.png",
 ];
 
 const APP_PREFIX = 'budget-tracker';
-const VERSION = 'version_01';
+const VERSION = 'v1';
 const CACHE_NAME = APP_PREFIX + VERSION;
+const DATA_CACHE_NAME = 'data-cache-' + VERSION;
 
 self.addEventListener('install', function (e) {
     e.waitUntil(
@@ -48,7 +51,25 @@ self.addEventListener('activate', function (e) {
 });
 
 self.addEventListener('fetch', function (e) {
-    console.log('fetch request : ' + e.request.url)
+    //cache all get requests through API request
+    if (e.request.url.includes('/api/')) {
+        e.respondWith(
+            caches.open(DATA_CACHE_NAME).then(cache => {
+                return fetch(e.request)
+                    .then(response => {
+                        if (response.status === 200) {
+                            cache.put(e.request.url, response.clone())
+                        }
+                        return response;
+                    })
+                    .catch(err => {
+                        return cache.match(e.request)
+                    })
+            })
+                .catch(err => console.log(err))
+        )
+    }
+    // console.log('fetch request : ' + e.request.url)
     e.respondWith(
         caches.match(e.request).then(function (request) {
             if (request) { // if cache is available, respond with cache
